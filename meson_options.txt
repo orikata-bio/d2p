@@ -1,0 +1,21 @@
+option(
+  'cuda',
+  type : 'feature',
+  value : 'auto',
+  description : 'Build CUDA kernels and link against PyTorch CUDA libraries'
+)
+
+option(
+  'd2p_cuda_arch_mode',
+  type : 'combo',
+  choices : ['native', 'release-cu128', 'release-cu130', 'custom'],
+  value : 'native',
+  description : 'CUDA arch selection policy: narrow native source builds by default, explicit fatbin release profiles for wheel builds'
+)
+
+option(
+  'd2p_cuda_gencode',
+  type : 'string',
+  value : '',
+  description : 'Semicolon-separated NVCC gencode entries used when d2p_cuda_arch_mode=custom, for example arch=compute_80,code=sm_80;arch=compute_80,code=compute_80'
+)
