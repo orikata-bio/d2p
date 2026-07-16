@@ -159,7 +159,7 @@ else:
         token = f"{major}{minor}"
         flags.append(f"-gencode=arch=compute_{token},code=sm_{token}")
 
-print("\\n".join(flags))
+print(chr(10).join(flags))
 ''',
       check : true
     )
