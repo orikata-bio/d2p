@@ -75,10 +75,17 @@ message('PyTorch include paths: ' + torch_include_result.stdout().strip())
 message('PyTorch library paths: ' + torch_lib_result.stdout().strip())
 message('PyTorch CXX11 ABI: ' + torch_abi)
 
-# Create include directories
+# Create include directories.
+# Skip reported include paths that do not actually exist: conda-forge's torch
+# advertises a bogus torch/include/torch/csrc/api/include (the real C++ API headers
+# live under the env prefix, which it also reports), and meson hard-fails on a
+# missing include dir. No-op for pip's torch, where every reported path exists.
+fs = import('fs')
 torch_inc_dirs = []
 foreach inc : torch_includes
-  torch_inc_dirs += include_directories(inc, is_system : true)
+  if inc != '' and fs.is_dir(inc)
+    torch_inc_dirs += include_directories(inc, is_system : true)
+  endif
 endforeach
 
 # Add local src directory for common/ headers
