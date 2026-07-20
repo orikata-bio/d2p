@@ -9,7 +9,7 @@ requires = [
 build-backend = "mesonpy"
 
 [project]
-name = "d2p"
+name = "py-d2p"
 version = "0.1.0"
 description = "Differentiable Dynamic Programming operators for PyTorch on CPU and CUDA"
 readme = "README.md"
