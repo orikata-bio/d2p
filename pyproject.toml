@@ -13,14 +13,19 @@ name = "py-d2p"
 version = "0.1.0"
 description = "Differentiable Dynamic Programming operators for PyTorch on CPU and CUDA"
 readme = "README.md"
-license = {text = "Apache-2.0"}
+license = "Apache-2.0"
+# Ship the license text and the attribution NOTICE inside built artifacts, not
+# just as metadata. Apache-2.0 requires recipients get a copy of the License
+# (4a) and that the NOTICE attributions are retained (4d); a `License:` header
+# alone satisfies neither. Without this the wheels contained no license text at
+# all.
+license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.10"
 keywords = ["pytorch", "dynamic-programming", "differentiable", "cpu", "cuda", "alignment", "parsing"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
