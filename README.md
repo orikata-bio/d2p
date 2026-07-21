@@ -23,8 +23,20 @@ Install a matching PyTorch build first, then build d2p from source. The extensio
 pip install meson-python meson ninja        # build backend
 git clone https://github.com/orikata-bio/d2p.git
 cd d2p
-pip install . --no-build-isolation          # builds against your installed PyTorch
+pip install . --no-build-isolation --no-cache-dir   # builds against your installed PyTorch
 ```
+
+`--no-build-isolation` is required, not optional. The extension registers ops
+through `TORCH_LIBRARY` and is locked to the exact PyTorch it compiles against,
+because `libc10`/`libtorch` symbol versions change every PyTorch minor release.
+Under PEP 517 build isolation pip installs its *own* (latest) PyTorch into a
+temporary build environment and compiles against that instead of yours; the
+install then reports success and the mismatch only appears later as an
+`undefined symbol` error on `import d2p`.
+
+`--no-cache-dir` matters for the same reason: pip keys its wheel cache on the
+source distribution, not on the PyTorch it was built against, so an incompatible
+wheel built earlier is silently reused even after you correct the command.
 
 Requirements:
 

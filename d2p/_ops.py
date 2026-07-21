@@ -58,7 +58,33 @@ def _load_extension():
         libs = sorted(glob.glob(build_pattern))
 
     if libs:
-        torch.ops.load_library(libs[0])
+        try:
+            torch.ops.load_library(libs[0])
+        except OSError as exc:
+            # The extension is ABI-locked to the exact torch it was compiled
+            # against: libc10/libtorch symbol versions move every torch minor.
+            # The common cause is `pip install d2p` building from source under
+            # PEP 517 isolation, which installs its own (latest) torch into the
+            # build environment and compiles against that instead of yours --
+            # pip then reports success and this is the first sign anything is
+            # wrong. Say so, rather than surfacing a bare undefined symbol.
+            if "undefined symbol" in str(exc):
+                raise ImportError(
+                    f"d2p's compiled extension is not compatible with the "
+                    f"installed torch {torch.__version__}.\n\n"
+                    f"This usually means it was built against a different "
+                    f"torch version. If you installed from source, PEP 517 "
+                    f"build isolation pulls in its own torch, so build "
+                    f"against yours instead:\n\n"
+                    f"    pip install torch=={torch.__version__.split('+')[0]}\n"
+                    f"    pip install meson-python meson ninja\n"
+                    f"    pip install --no-build-isolation --no-cache-dir py-d2p\n\n"
+                    f"(--no-cache-dir matters: pip keys its wheel cache on the "
+                    f"sdist, not on the torch it was built against, so a "
+                    f"previously built incompatible wheel is otherwise reused.)"
+                    f"\n\nOriginal error: {exc}"
+                ) from exc
+            raise
         _extension_loaded = True
         _cuda_dispatch_available = _has_cuda_dispatch()
     else:
