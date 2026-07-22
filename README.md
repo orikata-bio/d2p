@@ -17,28 +17,15 @@ d2p provides differentiable dynamic programming operators for PyTorch across seq
 
 ### Prebuilt binaries (recommended)
 
-d2p ships prebuilt wheels and conda packages, one per (PyTorch minor × CUDA lane).
-Each binary is locked to the exact PyTorch it was built against — `libc10`/`libtorch`
-symbol versions change every PyTorch minor — so install a matching PyTorch first.
-
-**pip** — this one line detects your installed PyTorch + CUDA and installs the
-matching wheel:
-
-```bash
-pip install py-d2p --extra-index-url "https://download.orikata.ai/whl/$(python -c "import torch;v='.'.join(torch.__version__.split('+')[0].split('.')[:2]);c=torch.version.cuda;print(f'torch{v}/'+('cpu' if not c else 'cu'+c.replace('.','')))")/"
-```
-
-Pin a version the usual way — `py-d2p==0.1.0` — the `--extra-index-url` is still
-what points pip at the wheels, so keep it on the command.
-
-Prefer to choose the lane yourself? The index is
-`https://download.orikata.ai/whl/torch<MINOR>/<LANE>/`:
+Install a matching PyTorch first — each binary is locked to the exact PyTorch it was
+built against (`libc10`/`libtorch` symbols change every PyTorch minor). Then install
+d2p from the wheel index, picking the lane for your PyTorch + CUDA:
 
 ```bash
 pip install py-d2p --extra-index-url https://download.orikata.ai/whl/torch2.13/cu130/
 ```
 
-Available lanes:
+Swap `torch2.13/cu130` for your lane:
 
 | PyTorch | CUDA lanes |
 |---------|------------|
@@ -48,9 +35,15 @@ Available lanes:
 | 2.12 | cpu · cu126 · cu129 · cu130 · cu132 |
 | 2.13 | cpu · cu126 · cu129 · cu130 · cu132 |
 
-Use `--extra-index-url`, not `--index-url`: PyPI still resolves your other
-dependencies while the d2p index serves only d2p. The distribution is named
-`py-d2p`; the import name is `d2p`.
+Not sure which lane? This detects it from your installed PyTorch:
+
+```bash
+pip install py-d2p --extra-index-url "https://download.orikata.ai/whl/$(python -c "import torch;v='.'.join(torch.__version__.split('+')[0].split('.')[:2]);c=torch.version.cuda;print(f'torch{v}/'+('cpu' if not c else 'cu'+c.replace('.','')))")/"
+```
+
+The distribution is named `py-d2p` (`d2p` is taken on PyPI); the **import name is
+still `d2p`**. Use `--extra-index-url`, not `--index-url`, so PyPI still resolves your
+other dependencies. Pin a version with `py-d2p==0.1.0` (keep the `--extra-index-url`).
 
 **conda** — the same matrix from one channel:
 
