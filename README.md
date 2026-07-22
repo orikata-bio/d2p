@@ -15,7 +15,35 @@ d2p provides differentiable dynamic programming operators for PyTorch across seq
 
 ## Installation
 
-> **d2p is not yet published to PyPI or conda.** For now, build from source (below). Prebuilt binary wheels (`d2p-cpu` / `d2p-cu128` / `d2p-cu130` lanes) are planned for a future release.
+### Prebuilt binaries (recommended)
+
+d2p ships prebuilt wheels and conda packages, one per (PyTorch minor × CUDA lane).
+Each binary is locked to the exact PyTorch it was built against — `libc10`/`libtorch`
+symbol versions change every PyTorch minor — so **install a matching PyTorch first**,
+then pick the lane that matches it.
+
+**pip** — lanes are `torch2.9` through `torch2.13` × `cpu`, `cu126`, `cu128`, `cu129`, `cu130`, `cu132`:
+
+```bash
+# example: an environment with PyTorch 2.13 built for CUDA 13.0
+pip install py-d2p --extra-index-url https://download.orikata.ai/whl/torch2.13/cu130/
+```
+
+Use `--extra-index-url`, not `--index-url`: PyPI still resolves your other
+dependencies while the d2p index serves only d2p. The distribution is named
+`py-d2p`; the import name is `d2p`.
+
+**conda** — the same matrix from one channel:
+
+```bash
+conda install -c https://download.orikata.ai/conda d2p
+```
+
+conda selects the build matching your installed PyTorch and platform automatically.
+
+### Build from source
+
+Alternatively, build against your installed PyTorch directly.
 
 Install a matching PyTorch build first, then build d2p from source. The extension compiles against your installed PyTorch, so build with `--no-build-isolation` (after installing the build backend):
 
