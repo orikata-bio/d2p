@@ -19,15 +19,34 @@ d2p provides differentiable dynamic programming operators for PyTorch across seq
 
 d2p ships prebuilt wheels and conda packages, one per (PyTorch minor × CUDA lane).
 Each binary is locked to the exact PyTorch it was built against — `libc10`/`libtorch`
-symbol versions change every PyTorch minor — so **install a matching PyTorch first**,
-then pick the lane that matches it.
+symbol versions change every PyTorch minor — so install a matching PyTorch first.
 
-**pip** — lanes are `torch2.9` through `torch2.13` × `cpu`, `cu126`, `cu128`, `cu129`, `cu130`, `cu132`:
+**pip** — this one line detects your installed PyTorch + CUDA and installs the
+matching wheel:
 
 ```bash
-# example: an environment with PyTorch 2.13 built for CUDA 13.0
+pip install py-d2p --extra-index-url "https://download.orikata.ai/whl/$(python -c "import torch;v='.'.join(torch.__version__.split('+')[0].split('.')[:2]);c=torch.version.cuda;print(f'torch{v}/'+('cpu' if not c else 'cu'+c.replace('.','')))")/"
+```
+
+Pin a version the usual way — `py-d2p==0.1.0` — the `--extra-index-url` is still
+what points pip at the wheels, so keep it on the command.
+
+Prefer to choose the lane yourself? The index is
+`https://download.orikata.ai/whl/torch<MINOR>/<LANE>/`:
+
+```bash
 pip install py-d2p --extra-index-url https://download.orikata.ai/whl/torch2.13/cu130/
 ```
+
+Available lanes:
+
+| PyTorch | CUDA lanes |
+|---------|------------|
+| 2.9  | cpu · cu126 · cu128 · cu129 · cu130 |
+| 2.10 | cpu · cu126 · cu128 · cu129 · cu130 |
+| 2.11 | cpu · cu126 · cu128 · cu129 · cu130 |
+| 2.12 | cpu · cu126 · cu129 · cu130 · cu132 |
+| 2.13 | cpu · cu126 · cu129 · cu130 · cu132 |
 
 Use `--extra-index-url`, not `--index-url`: PyPI still resolves your other
 dependencies while the d2p index serves only d2p. The distribution is named
@@ -40,6 +59,7 @@ conda install -c https://download.orikata.ai/conda d2p
 ```
 
 conda selects the build matching your installed PyTorch and platform automatically.
+
 
 ### Build from source
 
