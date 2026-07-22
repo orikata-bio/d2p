@@ -123,27 +123,17 @@ d2p ships 12 operators across seven guide families:
 
 **More docs:** [Concepts](docs/concepts.md) (differentiable-DP background) | [Usage Guide](docs/usage.md) (batching, masks, learnable params, modules, AMP, temperature) | [Examples](docs/examples.md) (end-to-end tutorials) | [Performance](docs/performance.md) (complexity, threading, arch) | [FAQ](docs/faq.md) | [Source builds](docs/source-build.md)
 
-## What You Get
+## Features
 
-- High-level result objects with named fields such as `.value`, `.marginals`, `.score`, `.alignment`, or `.distance`, depending on family.
-- `nn.Module` wrappers such as `d2p.SoftSW`, `d2p.SoftDTW`, and `d2p.SoftCKY`.
-- Low-level operator access through `d2p.ops` plus the legacy `torch.ops.d2p.*` surface.
-- Gradients through inputs, scalar hyperparameters, and Hessian-vector products for the shipped families.
-- First-order parameter-Jacobian APIs where the family exposes them.
-- Multithreaded CPU kernels: each batch element's dynamic program runs in parallel across PyTorch's intra-op threads (`torch.set_num_threads`).
-- Memory-safety-hardened CUDA and CPU kernels: length/shape/device validation at every op boundary, `size_t`-widened indexing, and multi-GPU device guards.
+Three API levels, highest to lowest:
 
-## API Levels
+- **High-level functions** — `d2p.soft_sw(...)`, `d2p.soft_dtw(...)`, `d2p.soft_cky(...)`, returning result objects with named fields (`.value`, `.marginals`, `.score`, `.alignment`, `.distance`, by family).
+- **`nn.Module` wrappers** — `d2p.SoftSW`, `d2p.SoftDTW`, `d2p.SoftMAS`, `d2p.SoftLevenshtein`, ... for learnable parameters and model composition.
+- **Low-level ops** — `d2p.ops` for structured access, plus the legacy `torch.ops.d2p.*` / `d2p._ops` surface.
 
-- High-level functions: `d2p.soft_sw(...)`, `d2p.soft_dtw(...)`, `d2p.soft_cky(...)`, ...
-- Module wrappers: `d2p.SoftSW(...)`, `d2p.SoftMAS(...)`, `d2p.SoftLevenshtein(...)`, ...
-- Low-level ops: `d2p.ops` for structured access, plus legacy compatibility re-exports from `d2p._ops`
+Across the shipped families you get gradients through inputs and scalar hyperparameters, Hessian-vector products, and first-order parameter Jacobians where the family exposes them. CPU kernels are multithreaded: each batch element's dynamic program runs across PyTorch's intra-op threads (`torch.set_num_threads`). Both CUDA and CPU kernels are memory-safety hardened, with length/shape/device validation at every op boundary, `size_t`-widened indexing, and multi-GPU device guards.
 
-See the [Usage Guide](docs/usage.md) for each level in depth: learnable parameters, `nn.Module` wrappers, AMP, temperature, and the low-level derivative surfaces (`_with_grads`, `_hvp`, `_param_jacobian`).
-
-## Source Builds
-
-For editable checkouts, per-architecture CUDA builds, or a custom CUDA toolchain, see [docs/source-build.md](docs/source-build.md).
+See the [Usage Guide](docs/usage.md) for each level in depth: learnable parameters, AMP, temperature, and the low-level derivative surfaces (`_with_grads`, `_hvp`, `_param_jacobian`).
 
 ## Scope Notes
 
