@@ -1,43 +1,131 @@
+# Generated from the first-party contribution-policy.mjs; no candidate checkout.
 name: Contribution policy
 on:
   pull_request_target:
-    types: [opened, edited, synchronize, reopened, ready_for_review]
+    types: [opened, edited, synchronize, reopened, ready_for_review, closed]
 permissions:
   contents: read
   pull-requests: read
   statuses: write
 concurrency:
-  group: contribution-policy-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  group: contribution-policy-${{ github.repository }}
+  cancel-in-progress: false
 jobs:
   disclosure:
     name: Validate contribution disclosure
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      # Metadata only: never check out or execute a contributor's code here.
       - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
-            function missingSections(body) {
-              const clean = (body || '').replace(/<!--[\s\S]*?-->/g, '').replace(/```[\s\S]*?```/g, '[code block]');
-              const sections = new Map();
-              let active = null;
-              for (const line of clean.split(/\r?\n/)) {
-                const heading = /^##\s+(.+?)\s*#*\s*$/.exec(line);
-                if (heading) { active = heading[1].trim().toLowerCase(); if (!sections.has(active)) sections.set(active, []); }
-                else if (active) sections.get(active).push(line);
+            function closesFence(line,fence) {
+              const marker=/^ {0,3}(`{3,}|~{3,})\s*$/.exec(line);
+              return Boolean(marker&&marker[1][0]===fence.char&&marker[1].length>=fence.length);
+            }
+            function visibleMarkdown(body) {
+              const text=body||'';let result='',fence=null;
+              for(let i=0;i<text.length;) {
+                if(i===0||text[i-1]==='\n') {
+                  const end=text.indexOf('\n',i),stop=end<0?text.length:end+1,line=text.slice(i,stop);
+                  if(fence) {
+                    if(closesFence(line,fence))fence=null;
+                    result+=line;i=stop;continue;
+                  }
+                  const start=/^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line.trimEnd());
+                  if(start){fence={char:start[1][0],length:start[1].length};result+=line;i=stop;continue;}
+                }
+                if(text.startsWith('<!--',i)) {
+                  const end=/--!?>/.exec(text.slice(i+4)),stop=end?i+4+end.index+end[0].length:text.length;
+                  result+=text.slice(i,stop).replace(/[^\n]/g,'');i=stop;continue;
+                }
+                if(text[i]==='`') {
+                  let stop=i+1;while(text[stop]==='`')stop++;
+                  // Inline code cannot span blank lines or a new Markdown block. An
+                  // unmatched opener must not make a later hidden comment appear visible.
+                  const boundary=/\r?\n[ \t]*\r?\n|\r?\n(?= {0,3}(?:#{1,6}\s|`{3,}|~{3,}|>|[-+*]\s|1[.)]\s))/.exec(text.slice(stop));
+                  const limit=boundary?stop+boundary.index:text.length;
+                  const ticks=text.slice(i,stop);let end=text.indexOf(ticks,stop);
+                  while(end>=0&&end<limit&&(text[end-1]==='`'||text[end+ticks.length]==='`'))end=text.indexOf(ticks,end+1);
+                  if(end>=0&&end<limit){result+=text.slice(i,end+ticks.length);i=end+ticks.length;continue;}
+                  result+=ticks;i=stop;continue;
+                }
+                result+=text[i++];
               }
-              return ['Summary','Human contribution','Agent contribution','External sources','Validation'].filter(name => {
-                const value = (sections.get(name.toLowerCase()) || []).join('\n').trim();
-                return !value || /^(?:TBD|TODO|N\/A|\[?replace.*|Describe .*|List .*|State .*|Identify .*|Explain .*)[.\s]*$/i.test(value);
+              return result;
+            }
+            function missingSections(body) {
+              const text=visibleMarkdown(body);
+              const sections=new Map();let active=null,fence=null;
+              for(const line of text.split(/\r?\n/)) {
+                if(fence) {
+                  if(closesFence(line,fence))fence=null;
+                  else if(active&&line.trim())sections.get(active).push('[nonempty code block]');
+                  continue;
+                }
+                const start=/^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+                if(start){fence={char:start[1][0],length:start[1].length};continue;}
+                const heading=/^##\s+(.+?)\s*#*\s*$/.exec(line);
+                if(heading){active=heading[1].trim().toLowerCase();if(!sections.has(active))sections.set(active,[]);}
+                else if(active)sections.get(active).push(line);
+              }
+              return ['Summary','Human contribution','Agent contribution','External sources','Validation'].filter(name=>{
+                const value=(sections.get(name.toLowerCase())||[]).join('\n').trim();
+                return !value||/^(?:TBD|TODO|N\/A|\[replace[^\]]*\])\.?$/i.test(value);
               });
             }
-            const { owner, repo } = context.repo;
-            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: context.issue.number });
-            const missing = missingSections(pr.body);
-            await github.rest.repos.createCommitStatus({ owner, repo, sha: pr.head.sha,
-              state: missing.length ? 'failure' : 'success', context: 'Contribution disclosure',
-              description: missing.length ? 'Complete: ' + missing.join(', ').slice(0, 120) : 'Required authorship, sources and validation disclosed',
-              target_url: `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}` });
-            if (missing.length) core.setFailed('Complete PR sections: ' + missing.join(', '));
+            function incompletePulls(pulls,head) {
+              const unique=new Map(pulls.filter(p=>p.state==='open'&&p.head?.sha===head).map(p=>[p.number,p]));
+              return [...unique.values()].map(p=>({number:p.number,missing:missingSections(p.body)})).filter(p=>p.missing.length).sort((a,b)=>a.number-b.number);
+            }
+            async function openPulls(github,owner,repo) {
+              const rows=[];
+              for(let page=1;page<=10;page++) {
+                // Commit association omits open companions once a SHA is on main.
+                const {data,headers}=await github.rest.pulls.list({owner,repo,state:'open',per_page:100,page});
+                rows.push(...data);
+                if(!headers.link?.includes('rel="next"'))return rows;
+              }
+              throw Error('Too many open PRs; disclosure validation requires maintainer inspection.');
+            }
+            async function latestDisclosureStatus(github,owner,repo,ref) {
+              for(let page=1;page<=10;page++) {
+                const {data,headers}=await github.rest.repos.listCommitStatusesForRef({owner,repo,ref,per_page:100,page});
+                const status=data.find(row=>row.context==='Contribution disclosure');
+                if(status)return status;
+                if(!headers.link?.includes('rel="next"'))return null;
+              }
+              throw Error('Disclosure status history exceeds the metadata bound.');
+            }
+            async function checkDisclosure(github,context,core) {
+              const {owner,repo}=context.repo;
+              const heads=new Set(),target_url=`${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+              const pending=async sha=>{
+                if(!/^[0-9a-f]{40}$/.test(sha||'')||heads.has(sha))return;
+                heads.add(sha);
+                await github.rest.repos.createCommitStatus({owner,repo,sha,state:'pending',context:'Contribution disclosure',description:'Revalidating current PR disclosures',target_url});
+              };
+              // Invalidate the webhook's known heads BEFORE any lookup can fail. Keeping
+              // these heads also clears stale failures when an incomplete companion moves.
+              await pending(context.payload?.pull_request?.head?.sha);
+              await pending(context.payload?.before);
+              const related=await openPulls(github,owner,repo);
+              const {data:current}=await github.rest.pulls.get({owner,repo,pull_number:context.issue.number});
+              await pending(current.head?.sha);
+              const invalidated=new Set(heads);
+              for(const pr of related)if(/^[0-9a-f]{40}$/.test(pr.head?.sha||''))heads.add(pr.head.sha);
+              const pulls=[...related.filter(p=>p.number!==current.number),current];
+              const errors=[];
+              for(const sha of heads) {
+                const failures=incompletePulls(pulls,sha);
+                const state=failures.length?'failure':'success';
+                const description=failures.length?('Complete disclosures in PRs: '+failures.map(p=>'#'+p.number).join(', ')).slice(0,140):'All open PRs at this head disclose authorship, sources and validation';
+                // Reconstruct skipped-event state without appending two statuses to every
+                // unchanged head on every event (GitHub caps each SHA/context at 1,000).
+                const previous=invalidated.has(sha)?null:await latestDisclosureStatus(github,owner,repo,sha);
+                if(!previous||previous.state!==state||previous.description!==description)await github.rest.repos.createCommitStatus({owner,repo,sha,state,context:'Contribution disclosure',description,target_url});
+                if(sha===current.head?.sha)errors.push(...failures.map(p=>'#'+p.number+': '+p.missing.join(', ')));
+              }
+              if(errors.length)core.setFailed([...new Set(errors)].join('\n'));
+            }
+            await checkDisclosure(github,context,core);
